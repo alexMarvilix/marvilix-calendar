@@ -12,6 +12,20 @@ angular.module("materialCalendar").config(["materialCalendar.config", "$logProvi
     }
 }]);
 
+angular.module("materialCalendar").directive('compile', ['$compile', function ($compile) {
+    return function(scope, element, attrs) {
+        scope.$watch(
+            function(scope) {
+                return scope.$eval(attrs.compile);
+            },
+            function(value) {
+                element.html(value);
+                $compile(element.contents())(scope);
+            }
+        );
+    };
+}]);
+
 angular.module("materialCalendar").service("materialCalendar.Calendar", [function () {
 
     function Calendar(year, month, options) {
@@ -28,11 +42,33 @@ angular.module("materialCalendar").service("materialCalendar.Calendar", [functio
             return this.weekStartsOn;
         };
 
+        this.setStartDateOfMonth = function (i) {
+            var d = parseInt(i || 1, 10);
+            if (!isNaN(d) && d >= 1 && d <= 31) {
+                this.startDateOfMonth = d;
+            } else {
+                this.startDateOfMonth = 1;
+            }
+            return this.startDateOfMonth;
+        };
+
+        this.setNoOfDays = function (i) {
+            var d = parseInt(i || 0, 10);
+            if (!isNaN(d) && d > 0 ) {
+                this.noOfDays = d;
+            } else {
+                this.noOfDays = 0;
+            }
+            return this.noOfDays;
+        };
+
         this.options = angular.isObject(options) ? options : {};
         this.year = now.getFullYear();
         this.month = now.getMonth();
         this.weeks = [];
         this.weekStartsOn = this.setWeekStartsOn(this.options.weekStartsOn);
+        this.startDateOfMonth = this.setStartDateOfMonth(this.options.startDateOfMonth);
+        this.noOfDays = this.setNoOfDays(this.options.noOfDays);
 
         this.next = function () {
             if (this.start.getMonth() < 11) {
@@ -68,11 +104,30 @@ angular.module("materialCalendar").service("materialCalendar.Calendar", [functio
             }
 
             // First day of calendar month.
-            this.start = new Date(this.year, this.month, 1);
+            if ( angular.isDefined(this.options.startDateOfMonth) ) {
+                this.start = new Date(this.year, this.month, this.startDateOfMonth);
+            } else {
+                this.start = new Date(this.year, this.month, 1);
+            }
+
             var date = angular.copy(this.start);
-            while (date.getDay() !== this.weekStartsOn) {
-                date.setDate(date.getDate() - 1);
-                monthLength++;
+            if ( date.getDate() === 1) {
+                while ( date.getDay() !== this.weekStartsOn) {
+                    date.setDate(date.getDate() - 1);
+                    monthLength++;
+                }
+            }
+
+            if ( this.noOfDays !== 0) {
+                while (this.noOfDays % 7 !== 0) {
+                    this.noOfDays++;
+                }
+                monthLength = this.noOfDays;
+            } else {
+                // Last day of calendar month.
+                while (monthLength % 7 !== 0) {
+                    monthLength++;
+                }
             }
 
             // Last day of calendar month.
@@ -123,9 +178,9 @@ angular.module("materialCalendar").service("MaterialCalendarData", [function () 
     return new CalendarData();
 }]);
 
-angular.module("materialCalendar").directive("calendarMd", ["$compile", "$parse", "$http", "$q", "materialCalendar.Calendar", "MaterialCalendarData", function ($compile, $parse, $http, $q, Calendar, CalendarData) {
+angular.module("materialCalendar").directive("calendarMd", ["$compile", "$parse", "$templateRequest", "$q", "materialCalendar.Calendar", "MaterialCalendarData", function ($compile, $parse, $templateRequest, $q, Calendar, CalendarData) {
 
-    var defaultTemplate = "<div data-ng-include='templateUrl' style='width: 100%;'></div>";
+    var defaultTemplate = "<md-content layout='column' layout-fill md-swipe-left='next()' md-swipe-right='prev()'><md-toolbar><div class='md-toolbar-tools' layout='row'><md-button class='md-icon-button' ng-click='prev()' aria-label='Previous month'><md-tooltip ng-if='::tooltips()'>Previous month</md-tooltip><md-icon md-svg-icon='md-tabs-arrow'></md-icon></md-button><div flex></div><h2 class='calendar-md-title'><span>{{ calendar.start | date:titleFormat:timezone }}</span></h2><div flex></div><md-button class='md-icon-button' ng-click='next()' aria-label='Next month'><md-tooltip ng-if='::tooltips()'>Next month</md-tooltip><md-icon md-svg-icon='md-tabs-arrow' class='moveNext'></md-icon></md-button></div></md-toolbar><!-- agenda view --><md-content ng-if='weekLayout === columnWeekLayout' class='agenda'><div ng-repeat='week in calendar.weeks track by $index'><div ng-if='sameMonth(day)' ng-class='{&quot;disabled&quot; : isDisabled(day), active: active === day }' ng-click='handleDayClick(day)' ng-repeat='day in week' layout><md-tooltip ng-if='::tooltips()'>{{ day | date:dayTooltipFormat:timezone }}</md-tooltip><div>{{ day | date:dayFormat:timezone }}</div><div flex compile='dataService.data[dayKey(day)]'></div></div></div></md-content><!-- calendar view --><md-content ng-if='weekLayout !== columnWeekLayout' flex layout='column' class='calendar'><div layout='row' class='subheader'><div layout-padding class='subheader-day' flex ng-repeat='day in calendar.weeks[0]'><md-tooltip ng-if='::tooltips()'>{{ day | date:dayLabelTooltipFormat }}</md-tooltip>{{ day | date:dayLabelFormat }}</div></div><div ng-if='week.length' ng-repeat='week in calendar.weeks track by $index' flex layout='row'><div tabindex='{{ sameMonth(day) ? (day | date:dayFormat:timezone) : 0 }}' ng-repeat='day in week track by $index' ng-click='handleDayClick(day)' flex layout layout-padding ng-class='{&quot;disabled&quot; : isDisabled(day), &quot;active&quot;: isActive(day), &quot;md-whiteframe-12dp&quot;: hover || focus }' ng-focus='focus = true;' ng-blur='focus = false;' ng-mouseleave='hover = false' ng-mouseenter='hover = true'><md-tooltip ng-if='::tooltips()'>{{ day | date:dayTooltipFormat }}</md-tooltip><div>{{ day | date:dayFormat }}</div><div flex compile='dataService.data[dayKey(day)]' id='{{ day | date:dayIdFormat }}'></div></div></div></md-content></md-content>";
 
     var injectCss = function () {
         var styleId = "calendarMdCss";
@@ -134,7 +189,7 @@ angular.module("materialCalendar").directive("calendarMd", ["$compile", "$parse"
             var css = document.createElement("style");
             css.type = "text/css";
             css.id = styleId;
-            css.innerHTML = "calendar-md md-content>md-content.agenda>*>* :not(:first-child),calendar-md md-content>md-content.calendar>:not(:first-child)>* :last-child{overflow:hidden;text-overflow:ellipsis}calendar-md{display:block;max-height:100%}calendar-md .md-toolbar-tools h2{overflow-x:hidden;text-overflow:ellipsis;white-space:nowrap}calendar-md md-content>md-content{border:1px solid rgba(0,0,0,.12)}calendar-md md-content>md-content.agenda>*>*{border-bottom:1px solid rgba(0,0,0,.12)}calendar-md md-content>md-content.agenda>*>.disabled{color:rgba(0,0,0,.3);pointer-events:none;cursor:auto}calendar-md md-content>md-content.agenda>*>* :first-child{padding:12px;width:200px;text-align:right;color:rgba(0,0,0,.75);font-weight:100;overflow-x:hidden;text-overflow:ellipsis;white-space:nowrap}calendar-md md-content>md-content>*>*{min-width:48px}calendar-md md-content>md-content.calendar>:first-child{background:rgba(0,0,0,.02);border-bottom:1px solid rgba(0,0,0,.12);margin-right:0;min-height:36px}calendar-md md-content>md-content.calendar>:not(:first-child)>*{border-bottom:1px solid rgba(0,0,0,.12);border-right:1px solid rgba(0,0,0,.12);cursor:pointer}calendar-md md-content>md-content.calendar>:not(:first-child)>:hover{background:rgba(0,0,0,.04)}calendar-md md-content>md-content.calendar>:not(:first-child)>.disabled{color:rgba(0,0,0,.3);pointer-events:none;cursor:auto}calendar-md md-content>md-content.calendar>:not(:first-child)>.active{box-shadow:0 1px 3px 0 rgba(0,0,0,.2),0 1px 1px 0 rgba(0,0,0,.14),0 2px 1px -1px rgba(0,0,0,.12);background:rgba(0,0,0,.02)}calendar-md md-content>md-content.calendar>:not(:first-child)>* :first-child{padding:0}";
+            css.innerHTML = "calendar-md md-content>md-content.agenda>*>* :not(:first-child),calendar-md md-content>md-content.calendar>:not(:first-child)>* :last-child{overflow:hidden;text-overflow:ellipsis}calendar-md{display:block;max-height:100%}calendar-md .md-toolbar-tools h2{overflow-x:hidden;text-overflow:ellipsis;white-space:nowrap}calendar-md .md-toolbar-tools .moveNext{transform:translate3d(0,0,0) rotate(180deg)}calendar-md md-content>md-content{border:1px solid rgba(0,0,0,.12)}calendar-md md-content>md-content.agenda>*>*{border-bottom:1px solid rgba(0,0,0,.12)}calendar-md md-content>md-content.agenda>*>.disabled{color:rgba(0,0,0,.3);pointer-events:none;cursor:auto}calendar-md md-content>md-content.agenda>*>* :first-child{padding:12px;width:200px;text-align:right;color:rgba(0,0,0,.75);font-weight:100;overflow-x:hidden;text-overflow:ellipsis;white-space:nowrap}calendar-md md-content>md-content>*>*{min-width:48px}calendar-md md-content>md-content.calendar>:first-child{background:rgba(0,0,0,.02);border-bottom:1px solid rgba(0,0,0,.12);margin-right:0;min-height:36px}calendar-md md-content>md-content.calendar>:not(:first-child)>*{border-bottom:1px solid rgba(0,0,0,.12);border-right:1px solid rgba(0,0,0,.12);cursor:pointer}calendar-md md-content>md-content.calendar>:not(:first-child)>:hover{background:rgba(0,0,0,.04)}calendar-md md-content>md-content.calendar>:not(:first-child)>.disabled{color:rgba(0,0,0,.3);pointer-events:none;cursor:auto}calendar-md md-content>md-content.calendar>:not(:first-child)>.active{box-shadow:0 1px 3px 0 rgba(0,0,0,.2),0 1px 1px 0 rgba(0,0,0,.14),0 2px 1px -1px rgba(0,0,0,.12);background:rgba(0,0,0,.02)}calendar-md md-content>md-content.calendar>:not(:first-child)>* :first-child{padding:0}";
             head.insertBefore(css, head.firstChild);
         }
     };
@@ -144,7 +199,6 @@ angular.module("materialCalendar").directive("calendarMd", ["$compile", "$parse"
         scope: {
             ngModel: "=?",
             template: "&",
-            needsRefresh: "=?",
             templateUrl: "=?",
             onDayClick: "=?",
             onPrevMonth: "=?",
@@ -159,8 +213,11 @@ angular.module("materialCalendar").directive("calendarMd", ["$compile", "$parse"
             dayTooltipFormat: "=?",
             weekStartsOn: "=?",
             tooltips: "&?",
+            startDateOfMonth: "=?",
+            noOfDays: "=?",
             clearDataCacheOnLoad: "=?",
-            disableFutureSelection: "=?"
+            disableFutureSelection: "=?",
+            disableSelection: "=?"
         },
         link: function ($scope, $element, $attrs) {
 
@@ -191,12 +248,14 @@ angular.module("materialCalendar").directive("calendarMd", ["$compile", "$parse"
             }
 
             // Set the defaults here.
-            $scope.titleFormat = $scope.titleFormat || "MMMM yyyy";
+            $scope.titleFormat = $scope.titleFormat || "LLLL yyyy";
             $scope.dayLabelFormat = $scope.dayLabelFormat || "EEE";
             $scope.dayLabelTooltipFormat = $scope.dayLabelTooltipFormat || "EEEE";
             $scope.dayFormat = $scope.dayFormat || "d";
             $scope.dayTooltipFormat = $scope.dayTooltipFormat || "fullDate";
+            $scope.dayIdFormat = "dd-MM-yy";
             $scope.disableFutureSelection = $scope.disableFutureSelection || false;
+            $scope.disableSelection = $scope.disableSelection || false;
 
             $scope.sameMonth = function (date) {
                 var d = angular.copy(date);
@@ -204,18 +263,16 @@ angular.module("materialCalendar").directive("calendarMd", ["$compile", "$parse"
                     d.getMonth() === $scope.calendar.month;
             };
 
-            $scope.isDisabled = function (date) {
+            $scope.isDisabled = function (date,startDateOfMonth,noOfDays) {
+                if (noOfDays!=0 && angular.isDefined(noOfDays)) { 
+                    var dateStart = new Date($scope.calendar.year,$scope.calendar.month,startDateOfMonth);
+                    var dateEnd = angular.copy(dateStart);
+                    dateEnd.setDate(dateStart.getDate()+parseInt(noOfDays));
+                    if (date.getDate() <= dateStart && date.getDate() >= dateEnd) { return true; }
+                }
+                if ($scope.disableSelection) { return true; }
                 if ($scope.disableFutureSelection && date > new Date()) { return true; }
                 return !$scope.sameMonth(date);
-            };
-
-            $scope.isToday = function(date){
-
-                var today = new Date();
-
-                today.setHours(0, 0, 0, 0);
-
-                return today.getTime() == date.getTime();
             };
 
             $scope.calendarDirection = $scope.calendarDirection || "horizontal";
@@ -250,7 +307,9 @@ angular.module("materialCalendar").directive("calendarMd", ["$compile", "$parse"
                 var match;
                 var active = angular.copy($scope.active);
                 if (!angular.isArray(active)) {
-                    match = angular.equals(date, active);
+                    if (active && angular.equals(active.getYear(), date.getYear()) && angular.equals(active.getMonth(), date.getMonth()) && angular.equals(active.getDate(), date.getDate())) {
+                        match = true;
+                    }
                 } else {
                     match = dateFind(active, date) > -1;
                 }
@@ -280,6 +339,10 @@ angular.module("materialCalendar").directive("calendarMd", ["$compile", "$parse"
             $scope.handleDayClick = function (date) {
 
                 if($scope.disableFutureSelection && date > new Date()) {
+                    return;
+                }
+
+                if($scope.disableSelection) {
                     return;
                 }
 
@@ -317,12 +380,21 @@ angular.module("materialCalendar").directive("calendarMd", ["$compile", "$parse"
             var init = function () {
 
                 $scope.calendar = new Calendar(year, month, {
-                    weekStartsOn: $scope.weekStartsOn || 0
+                    weekStartsOn: $scope.weekStartsOn || 0,
+                    startDateOfMonth: $scope.startDateOfMonth || 1,
+                    noOfDays: $scope.noOfDays || 0
                 });
 
-                return defaultTemplate;
+                // Allows fetching of dynamic templates via $templateCache.
+                if ($scope.templateUrl) {
+                    return $templateRequest($scope.templateUrl);
+                }
 
+                return $q.resolve($scope.template() || defaultTemplate);
             };
+
+
+
 
             $scope.dataService = CalendarData;
 
@@ -368,22 +440,13 @@ angular.module("materialCalendar").directive("calendarMd", ["$compile", "$parse"
             window.data = $scope.data;
 
             var bootstrap = function () {
-
-                var contents = init();
-                setTemplate(contents);
-                setData();
+                init().then(function (contents) {
+                    setTemplate(contents);
+                    setData();
+                });
             };
 
-            // Modified code to allow for refreshing
-            $scope.$watch("needsRefresh", function(newValue){
-                if(newValue == true){
-                    //console.log("Refreshing");
-                    setData();
-                    $scope.needsRefresh = false;
-                }
-
-            });
-            $scope.$watch("weekStartsOn", init);
+            $scope.$watchGroup(["weekStartsOn","startDateOfMonth","noOfDays"], init);
             bootstrap();
 
             // These are for tests, don't remove them..
