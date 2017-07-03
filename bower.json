@@ -1,7 +1,7 @@
 {
-  "name": "marvilix-calendar",
-  "version": "1.0.0",
-  "homepage": "https://github.com/alexMarvilix/angular-material-calendar",
+  "name": "material-calendar",
+  "version": "0.2.14",
+  "homepage": "https://github.com/bradberger/material-calendar",
   "keywords": "angular material design calendar ngCalendar mdCalendar calendarMd calendar-md md-calendar ng-calendar",
   "authors": [
     "Brad Berger <brad@bradb.net>",
