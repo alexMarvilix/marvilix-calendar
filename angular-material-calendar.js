@@ -377,7 +377,7 @@ angular.module("materialCalendar").directive("calendarMd", ["$compile", "$parse"
             // Modified code to allow for refreshing
             $scope.$watch("needsRefresh", function(newValue){
                 if(newValue == true){
-                    console.log("Refreshing");
+                    //console.log("Refreshing");
                     setData();
                     $scope.needsRefresh = false;
                 }
