@@ -172,7 +172,8 @@ angular.module("materialCalendar").service("MaterialCalendarData", [function () 
         };
 
         this.setDayContent = function(date, content) {
-            this.data[this.getDayKey(date)] += content || "";
+            if(angular.isDefined(content))
+                this.data[this.getDayKey(date)] += content || "";
         };
     }
     return new CalendarData();
