@@ -1,4 +1,5 @@
-<md-content layout='column' layout-fill md-swipe-left='next()' md-swipe-right='prev()'>
+<!--<md-content layout='column' layout-fill md-swipe-left='next()' md-swipe-right='prev()'>-->
+<md-content layout='column' layout-fill>
     <md-toolbar class="md-accent">
         <div class='md-toolbar-tools' layout='row'>
             <md-button class="md-icon-button" ng-click='prev()' aria-label="Previous month">
@@ -25,10 +26,7 @@
         </div>
     </md-content>
     <!-- calendar view -->
-    <md-content ng-if='weekLayout !== columnWeekLayout' flex layout="column" class='calendar relative'>
-        <div class="loader" ng-show="dataService.data.length==0">
-            <md-progress-circular md-mode="indeterminate"></md-progress-circular>
-        </div>
+    <md-content ng-if='weekLayout !== columnWeekLayout' flex layout="column" class='calendar'>
         <div layout='row' class='subheader'>
             <div layout-padding class='subheader-day' flex ng-repeat='day in calendar.weeks[0]'>
               <md-tooltip ng-if="::tooltips()">{{ day | date:dayLabelTooltipFormat }}</md-tooltip>

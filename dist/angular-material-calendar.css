@@ -1,8 +1,6 @@
 calendar-md {
   display: block;
   max-height: 100%; }
-  calendar-md .relative {
-    position: relative; }
   calendar-md .md-toolbar-tools h2 {
     overflow-x: hidden;
     text-overflow: ellipsis;
